@@ -37,7 +37,7 @@ function startGame() {
         }
 
         let heroDude = scene.getMeshByName("heroDude");
-        if(heroDude) heroDude.Dude.move(scene);
+        if(heroDude && tank) heroDude.Dude.move(scene);
 
         if(scene.dudes) {
             for(var i = 0 ; i < scene.dudes.length ; i++) {
