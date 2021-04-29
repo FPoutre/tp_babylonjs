@@ -1,5 +1,3 @@
-import Shell from "./Shell.js";
-
 const shotCD = 1000*3.5; // 3.5s
 
 export default class M4 {
@@ -148,11 +146,18 @@ export default class M4 {
     }
 
     hit() {
-        if (this.hp > 67) {
-            this.hp -= 67;
+        if (this.hp > 50) {
+            this.hp -= 50;
         } else {
             this.initParticlesFX(this.scene);
             this.deadFX1.start();
+
+            let gameOver = new BABYLON.GUI.TextBlock();
+            gameOver.text = "GAME OVER";
+            gameOver.color = "red";
+            gameOver.fontSize = 72;
+            
+            this.scene.gui.addControl(gameOver);
         }
     }
 

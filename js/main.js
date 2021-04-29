@@ -49,7 +49,7 @@ function startGame() {
             tank.shells.forEach(shell => {
                 shell.move(scene);
             });
-            socket.emit('update', new WSData(tank));
+            scene.gui = createGUI(scene);
         }
 
         scene.render();
@@ -59,13 +59,12 @@ function startGame() {
 function createScene() {
     let scene = new BABYLON.Scene(engine);
     //scene.enablePhysics(new BABYLON.Vector3(0, -10*9.81, 0), new BABYLON.CannonJSPlugin());
-
     let ground = createGround(scene);
     let freeCamera = createFreeCamera(scene);
-    scene.activeCamera = freeCamera;
     soundManager = new SoundManager(scene);
+    
     scene.tanks = ennemyTanks;
-
+    scene.activeCamera = freeCamera;
     scene.collisionsEnabled = true;
 
     createLights(scene);
@@ -99,6 +98,54 @@ function createGround(scene) {
         scene.ground = ground;
     }
     return ground;
+}
+
+export function createGUI(scene) {
+    // GUI
+    let gui = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI("UI");
+
+    /*let button1 = BABYLON.GUI.Button.CreateSimpleButton("but1", "Click Me");
+    button1.width = "150px"
+    button1.height = "40px";
+    button1.color = "white";
+    button1.cornerRadius = 20;
+    button1.background = "green";
+    button1.onPointerUpObservable.add(function() {
+        alert("you did it!");
+    });*/
+    let hpBG = new BABYLON.GUI.Rectangle();
+    hpBG.width = 0.1;
+    hpBG.height = 0.05;
+    hpBG.cornerRadius = 5;
+    hpBG.color = "black";
+    hpBG.thickness = 1;
+    hpBG.alpha = 0.75;
+    hpBG.background = "red";
+    hpBG.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+    hpBG.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_BOTTOM;
+    hpBG.top = 0.01;
+    hpBG.left = 0.01;
+    let hpText = new BABYLON.GUI.TextBlock();
+    hpText.text = tank.hp.toString() + '/100';
+    hpText.color = "white";
+    hpText.fontSize = 24;
+    let infoBG = new BABYLON.GUI.Rectangle();
+    infoBG.width = 0.05;
+    infoBG.height = 0.25;
+    infoBG.cornerRadius = 5;
+    infoBG.alpha = 0.75;
+    infoBG.background = "black";
+    infoBG.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+    infoBG.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_TOP;
+    infoBG.bottom = 0.01;
+    infoBG.left = 0.01;
+
+    //gui.addControl(button1);
+    hpBG.addControl(hpText);
+    gui.addControl(infoBG);
+    gui.addControl(hpBG);
+
+    return gui;
 }
 
 function createLights(scene) {
@@ -190,44 +237,48 @@ function modifySettings() {
     
     //add the listener to the main, window object, and update the states
     window.addEventListener('keydown', (event) => {
-        if ((event.key === "ArrowLeft") || (event.key === "q")|| (event.key === "Q")) {
-            inputStates.left = true;
-        } else if ((event.key === "ArrowUp") || (event.key === "z")|| (event.key === "Z")){
-            inputStates.up = true;
-        } else if ((event.key === "ArrowRight") || (event.key === "d")|| (event.key === "D")){
-            inputStates.right = true;
-        } else if ((event.key === "ArrowDown") || (event.key === "s")|| (event.key === "S")) {
-            inputStates.down = true;
-        } else if ((event.key === "a") || (event.key === "A")) {
-            inputStates.traverseLeft = true;
-        } else if ((event.key === "e") || (event.key === "E")) {
-            inputStates.traverseRight = true;
-        } else if ((event.key === "p") || (event.key === "P")) {
-            inputStates.pause = true;
-        } else if (event.key === " ") {
-            inputStates.space = true;
+        if (tank.hp > 0) {
+            if ((event.key === "ArrowLeft") || (event.key === "q")|| (event.key === "Q")) {
+                inputStates.left = true;
+            } else if ((event.key === "ArrowUp") || (event.key === "z")|| (event.key === "Z")){
+                inputStates.up = true;
+            } else if ((event.key === "ArrowRight") || (event.key === "d")|| (event.key === "D")){
+                inputStates.right = true;
+            } else if ((event.key === "ArrowDown") || (event.key === "s")|| (event.key === "S")) {
+                inputStates.down = true;
+            } else if ((event.key === "a") || (event.key === "A")) {
+                inputStates.traverseLeft = true;
+            } else if ((event.key === "e") || (event.key === "E")) {
+                inputStates.traverseRight = true;
+            } else if ((event.key === "p") || (event.key === "P")) {
+                inputStates.pause = true;
+            } else if (event.key === " ") {
+                inputStates.space = true;
+            }
         }
     }, false);
 
     //if the key will be released, change the states object 
     window.addEventListener('keyup', (event) => {
-        if ((event.key === "ArrowLeft") || (event.key === "q")|| (event.key === "Q")) {
-            inputStates.left = false;
-        } else if ((event.key === "ArrowUp") || (event.key === "z")|| (event.key === "Z")){
-            inputStates.up = false;
-        } else if ((event.key === "ArrowRight") || (event.key === "d")|| (event.key === "D")){
-            inputStates.right = false;
-        } else if ((event.key === "ArrowDown")|| (event.key === "s")|| (event.key === "S")) {
-            inputStates.down = false;
-        } else if ((event.key === "p") || (event.key === "P")) {
-            inputStates.pause = false;
-        } else if (event.key === " ") {
-            inputStates.space = false;
+        if (tank.hp > 0) {
+            if ((event.key === "ArrowLeft") || (event.key === "q")|| (event.key === "Q")) {
+                inputStates.left = false;
+            } else if ((event.key === "ArrowUp") || (event.key === "z")|| (event.key === "Z")){
+                inputStates.up = false;
+            } else if ((event.key === "ArrowRight") || (event.key === "d")|| (event.key === "D")){
+                inputStates.right = false;
+            } else if ((event.key === "ArrowDown")|| (event.key === "s")|| (event.key === "S")) {
+                inputStates.down = false;
+            } else if ((event.key === "p") || (event.key === "P")) {
+                inputStates.pause = false;
+            } else if (event.key === " ") {
+                inputStates.space = false;
+            }
         }
     }, false);
 
     window.addEventListener('mousemove', (event) => {
-        if (document.pointerLockElement) {
+        if (document.pointerLockElement && tank.hp > 0) {
             if (event.movementX < -2.5) {
                 inputStates.traverseLeft = true;
                 inputStates.traverseRight = false;
@@ -244,47 +295,58 @@ function modifySettings() {
     }, false);
 
     window.addEventListener('click', (event) => {
-        if (document.pointerLockElement) tank.shootMainGun();
+        if (document.pointerLockElement && tank.hp > 0) tank.shootMainGun();
     }, false);
 }
 
-socket.on('players', players => {
-    players.forEach(player => {
+if (socket && tank) {
+    // This is used when the client asks the server for who has already connected
+    socket.on('players', players => {
+        players.forEach(player => {
+            ennemyTanks.push(new M4(player.user, player.position, player.hullRotation, player.turretRotation, player.hp, scene, soundManager));
+        });
+    });
+
+    // Pretty straightforward : when a new tank has connected, we add it
+    socket.on('newPlayer', player => {
         ennemyTanks.push(new M4(player.user, player.position, player.hullRotation, player.turretRotation, player.hp, scene, soundManager));
     });
-});
 
-socket.on('newPlayer', player => {
-    ennemyTanks.push(new M4(player.user, player.position, player.hullRotation, player.turretRotation, player.hp, scene, soundManager));
-});
+    // Every server tick, we receive the new data of the ennemy tanks
+    socket.on('playersUpdate', players => {
+        players.forEach(player => {
+            if (player.name !== tank.userName) {
+                ennemyTanks.forEach(eTank => {
+                    if (player.name === eTank.userName) {
+                        eTank.hull.position = new BABYLON.Vector3(player.pos.x, player.pos.y, player.pos.z);
+                        eTank.turret.position = new BABYLON.Vector3(player.pos.x, player.pos.y, player.pos.z);
+                        eTank.hitbox.position = new BABYLON.Vector3(player.pos.x, player.pos.y, player.pos.z);
+                        eTank.frontVector = player.hullRotation;
+                        eTank.hull.rotation = player.hullRotation;
+                        eTank.hitbox.rotation = player.hullRotation;
+                        eTank.cannonDirection = player.turretRotation;
+                        eTank.turret.rotation = player.turretRotation;
+                        eTank.hp = player.hp;
+                    }
+                });
+            }
+        });
+    });
 
-socket.on('playersUpdate', players => {
-    players.forEach(player => {
-        if (player.name !== tank.userName) {
-            ennemyTanks.forEach(eTank => {
-                if (player.name === eTank.userName) {
-                    eTank.hull.position = new BABYLON.Vector3(player.pos.x, player.pos.y, player.pos.z);
-                    eTank.turret.position = new BABYLON.Vector3(player.pos.x, player.pos.y, player.pos.z);
-                    eTank.hitbox.position = new BABYLON.Vector3(player.pos.x, player.pos.y, player.pos.z);
-                    eTank.frontVector = player.hullRotation;
-                    eTank.hull.rotation = player.hullRotation;
-                    eTank.hitbox.rotation = player.hullRotation;
-                    eTank.cannonDirection = player.turretRotation;
-                    eTank.turret.rotation = player.turretRotation;
-                    eTank.hp = player.hp;
-                }
-            });
+    // If someone disconnects, we need to remove its tank from the scene
+    socket.on('logOut', player => {
+        for (let i = 0; i < ennemyTanks.length; i++) {
+            if (ennemyTanks[i].userName === player.name) {
+                scene.removeMesh(ennemyTanks[i].hull);
+                scene.removeMesh(ennemyTanks[i].turret);
+                scene.removeMesh(ennemyTanks[i].hitbox);
+                ennemyTanks.splice(i, 1);
+            }
         }
     });
-});
 
-socket.on('logOut', player => {
-    for (let i = 0; i < ennemyTanks.length; i++) {
-        if (ennemyTanks[i].userName === player.name) {
-            scene.removeMesh(ennemyTanks[i].hull);
-            scene.removeMesh(ennemyTanks[i].turret);
-            scene.removeMesh(ennemyTanks[i].hitbox);
-            ennemyTanks.splice(i, 1);
-        }
-    }
-});
+    // Let's update the tank's data every 500 ms to the server
+    window.setInterval(() => {
+        socket.emit('update', new WSData(tank));
+    }, 500);
+}
