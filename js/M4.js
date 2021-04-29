@@ -1,3 +1,5 @@
+import Shell from './Shell.js';
+
 const shotCD = 1000*3.5; // 3.5s
 
 export default class M4 {
@@ -49,30 +51,13 @@ export default class M4 {
             this.turret.rotationQuaternion = null;
         });
 
-        let nametagMaterial = new BABYLON.StandardMaterial(this.userName + '_nametagMaterial', scene);
-        let nametagTexture = new BABYLON.DynamicTexture(this.userName + '_nametagTexture', {width:60*10, height:60*4}, scene);
-
-        var ctx = nametagTexture.getContext();
-        let size = 12; //any value will work
-        ctx.font = size + 'px monospace';
-        let textWidth = ctx.measureText(this.userName).width;
-        let ratio = textWidth/size;
-        let fontSize = Math.floor(60*10/ratio);
-
-        nametagTexture.drawText(this.userName, 0, 200, fontSize + 'px monospace', 'red', 'white', true, true);
-        nametagMaterial.diffuseTexture = nametagTexture;
-        nametagMaterial.alpha = 0.6;
-        this.nametag = BABYLON.MeshBuilder.CreatePlane(this.userName + '_nametagMesh', {width:10, height:2}, scene);
-        this.nametag.position = new BABYLON.Vector3(pos.x, pos.y + 35, pos.z);
-        this.nametag.material = nametagMaterial;
-
         this.hitbox = BABYLON.MeshBuilder.CreateBox('hitbox', {width: 25, height: 55, depth: 60}, scene);
         this.hitbox.position = new BABYLON.Vector3(pos.x, 1, pos.z);
         this.hitbox.isVisible = false;
     }
 
     move(inputStates) {
-        if (this.hull) {
+        if (this.hull && this.hp > 0) {
             //tank.position.z += -1; // speed should be in unit/s, and depends on
             // deltaTime !
 
@@ -99,30 +84,68 @@ export default class M4 {
                 this.hitbox.rotation.y -= this.idleTraverseSpeed;
                 if (this.turret) this.turret.rotation.y -= this.idleTraverseSpeed;
                 //this.physicsRoot.rotation.y -= this.idleTraverseSpeed;
-                this.nametag.rotation.y -= this.idleTraverseSpeed;
             }    
             if (inputStates.right) {
                 this.hull.rotation.y += this.idleTraverseSpeed;
                 if (this.turret) this.turret.rotation.y += this.idleTraverseSpeed;
                 //this.physicsRoot.rotation.y += this.idleTraverseSpeed;
                 this.hitbox.rotation.y += this.idleTraverseSpeed;
-                this.nametag.rotation.y += this.idleTraverseSpeed;
             }
-            this.nametag.position = new BABYLON.Vector3(this.hull.position.x, this.hull.position.y + 35, this.hull.position.z);
+            this.frontVector = new BABYLON.Vector3(Math.sin(this.hull.rotation.y), 0, Math.cos(this.hull.rotation.y));
+            this.cannonDirection = new BABYLON.Vector3(Math.sin(this.turret.rotation.y), 0, Math.cos(this.turret.rotation.y));
+        }
+    }
+
+    aiMove() {
+        if (this.hull && this.turret && this.scene.tank.hull && this.hp > 0) {
+            let dist = this.scene.tank.hull.position.subtract(this.hull.position);
+            let sinAlpha = dist.x/dist.length;
+            //console.log(sinAlpha);
+
+            if (dist.length > 5) {
+                this.hull.moveWithCollisions(this.frontVector.multiplyByFloats(this.speed, this.speed, this.speed));
+                this.turret.moveWithCollisions(this.frontVector.multiplyByFloats(this.speed, this.speed, this.speed));
+                this.hitbox.moveWithCollisions(this.frontVector.multiplyByFloats(this.speed, this.speed, this.speed));
+            }
+
+            if (sinAlpha > 0.1) {
+                this.hull.rotation.y -= this.idleTraverseSpeed;
+                this.turret.rotation.y -= this.idleTraverseSpeed;
+                this.hitbox.rotation.y -= this.idleTraverseSpeed;
+            } else if (sinAlpha < 0.1) {
+                this.hull.rotation.y += this.idleTraverseSpeed;
+                this.turret.rotation.y += this.idleTraverseSpeed;
+                this.hitbox.rotation.y += this.idleTraverseSpeed;
+            }
             this.frontVector = new BABYLON.Vector3(Math.sin(this.hull.rotation.y), 0, Math.cos(this.hull.rotation.y));
             this.cannonDirection = new BABYLON.Vector3(Math.sin(this.turret.rotation.y), 0, Math.cos(this.turret.rotation.y));
         }
     }
 
     traverse(inputStates) {
-        if (this.turret) {
+        if (this.turret && this.hp > 0) {
             if (inputStates.traverseLeft) {
                 this.turret.rotation.y -= this.turretTraverseSpeed;
-                this.nametag.rotation.y -= this.turretTraverseSpeed;
             }
             if (inputStates.traverseRight) {
                 this.turret.rotation.y += this.turretTraverseSpeed;
-                this.nametag.rotation.y += this.turretTraverseSpeed;
+            }
+            this.cannonDirection = new BABYLON.Vector3(Math.sin(this.turret.rotation.y), 0, Math.cos(this.turret.rotation.y));
+        }
+    }
+
+    aiTraverse() {
+        if (this.turret && this.hp > 0) {
+            let dist = this.scene.tank.hull.position.subtract(this.hull.position);
+            let sinAlpha = dist.x/dist.length;
+            //console.log(sinAlpha);
+
+            if (sinAlpha > 0.01) {
+                this.turret.rotation.y -= this.turretTraverseSpeed;
+            } else if (sinAlpha < 0.01) {
+                this.turret.rotation.y += this.turretTraverseSpeed;
+            } else {
+                //if (Date.now() - this.lastShotTime > shotCD) this.shootMainGun();
             }
             this.cannonDirection = new BABYLON.Vector3(Math.sin(this.turret.rotation.y), 0, Math.cos(this.turret.rotation.y));
         }
@@ -137,7 +160,11 @@ export default class M4 {
             console.log('pos: ' + pos + ', dir: ' + dir);
 
             this.soundManager.shot.play();
-            this.shells.push(new Shell('HE', dir, new BABYLON.Vector3(pos.x, pos.y + 50, pos.z), this.scene));
+            window.setTimeout(() => {
+                this.soundManager.load.play();
+            }, shotCD - 750);
+
+            this.shells.push(new Shell('HE', dir, new BABYLON.Vector3(pos.x, pos.y + 50, pos.z), this.scene, this.soundManager));
 
             this.lastShotTime = Date.now();
         } else {
@@ -146,18 +173,12 @@ export default class M4 {
     }
 
     hit() {
-        if (this.hp > 50) {
+        if (this.hp > 50 - 1) {
             this.hp -= 50;
-        } else {
+        }
+        if (this.hp <= 0) {
             this.initParticlesFX(this.scene);
             this.deadFX1.start();
-
-            let gameOver = new BABYLON.GUI.TextBlock();
-            gameOver.text = "GAME OVER";
-            gameOver.color = "red";
-            gameOver.fontSize = 72;
-            
-            this.scene.gui.addControl(gameOver);
         }
     }
 

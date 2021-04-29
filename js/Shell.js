@@ -1,11 +1,12 @@
-const speed = 10;
+const speed = 50;
 
 export default class Shell {
 
-    constructor(type, dirVect, pos, scene) {
+    constructor(type, dirVect, pos, scene, soundManager) {
         this.type = type;
         this.dirVect = dirVect;
         this.scene = scene;
+        this.soundManager = soundManager;
 
         this.hasHit = false;
 
@@ -28,11 +29,18 @@ export default class Shell {
                 this.hit();
             }*/
 
+            /*if (this.mesh.intersectsMesh(scene.tank.hitbox)) {
+                console.log(this.mesh.position);
+                console.log('hit tank ' + scene.tank.userName);
+                this.hit();
+                scene.tank.hit();
+            }*/
+
             scene.tanks.forEach(eTank => {
                 //console.log(eTank);
                 if (this.mesh.intersectsMesh(eTank.hitbox)) {
                     console.log(this.mesh.position);
-                    console.log('hit tank ' + eTank);
+                    console.log('hit tank ' + eTank.userName);
                     this.hit();
                     eTank.hit();
                 }
@@ -104,6 +112,8 @@ export default class Shell {
 
     hit() {
         this.hasHit = true;
+        
+        this.soundManager.explode.play();
 
         this.dragFX.stop();
         this.hitFX1.start();

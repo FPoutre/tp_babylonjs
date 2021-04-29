@@ -14,11 +14,14 @@ let inputStates = {};
 let tank;
 let ennemyTanks = [];
 let pause = false;
+let gameOver = false;
 
 let mouseX = 800;
 let mouseY = 600;
 
-let socket = io.connect();
+const startTime = Date.now();
+
+//let socket = io.connect();
 
 window.onload = startGame;
 
@@ -42,6 +45,10 @@ function startGame() {
                 scene.activeCamera = followCamera;
                 followCameraCreated = true;
 
+                scene.gui = createGUI();
+
+                scene.tank = tank;
+
                 console.log('finished loading !');
             }
             tank.move(inputStates);
@@ -49,7 +56,31 @@ function startGame() {
             tank.shells.forEach(shell => {
                 shell.move(scene);
             });
-            scene.gui = createGUI(scene);
+        }
+
+        ennemyTanks.forEach(eTank => {
+            if (eTank.hull && eTank.turret) {
+                eTank.aiMove();
+                eTank.aiTraverse();
+                eTank.shells.forEach(shell => {
+                    shell.move(scene);
+                });
+            }
+        })
+
+        if (scene.gui) {
+            scene.gui.timer.text = 'Time: ' + ((Date.now() - startTime)/1000).toFixed(0).toString() + 's';
+            scene.gui.cdTimer.text = (Date.now() - tank.lastShotTime > 3500) ? 'Reloading: Ready !' : 'Reloading: ' + (3.5 - (Date.now() - tank.lastShotTime)/1000).toFixed(1).toString() + 's';
+            if (!gameOver && tank.hp <= 0) {
+                let gameOver = new BABYLON.GUI.TextBlock();
+                gameOver.text = "GAME OVER";
+                gameOver.color = "red";
+                gameOver.fontSize = 72;
+                
+                scene.gui.addControl(gameOver);
+
+                gameOver = true;
+            }
         }
 
         scene.render();
@@ -69,15 +100,35 @@ function createScene() {
 
     createLights(scene);
 
-    let pos = new BABYLON.Vector3(
-        Math.floor(Math.random() * 1000) - 500,
-        0,
-        Math.floor(Math.random() * 1000) - 500
-    );
+    let randVect = () => {
+        return new BABYLON.Vector3(
+            Math.floor(Math.random() * 3000) - 1500,
+            0,
+            Math.floor(Math.random() * 3000) - 1500
+        );
+    }
 
-    tank = new M4(window.prompt('Enter your name, tanker !'), pos, new BABYLON.Vector3(0, 0, 0), new BABYLON.Vector3(0, 0, 0), 100, scene, soundManager);
-    socket.emit('logIn', tank);
-    //ennemyTanks.push(new M4('pedo bob', new BABYLON.Vector3(0, 0, 500), new BABYLON.Vector3(0, -1, 0), new BABYLON.Vector3(0, 0, 0), 100, scene, soundManager));
+    let randDir = () => {
+        return new BABYLON.Vector3(
+            Math.random(),
+            0,
+            Math.random()
+        )
+    }
+
+    let tankDir = randDir();
+    tank = new M4(window.prompt('Enter your name, tanker !'), randVect(), tankDir, tankDir, 100, scene, soundManager);
+    //socket.emit('logIn', tank);
+    let eTankDir1 = randDir();
+    ennemyTanks.push(new M4('eTank1', randVect(), eTankDir1, eTankDir1, 100, scene, soundManager));
+    let eTankDir2 = randDir();
+    ennemyTanks.push(new M4('eTank2', randVect(), eTankDir2, eTankDir2, 100, scene, soundManager));
+    let eTankDir3 = randDir();
+    ennemyTanks.push(new M4('eTank3', randVect(), eTankDir3, eTankDir3, 100, scene, soundManager));
+    let eTankDir4 = randDir();
+    ennemyTanks.push(new M4('eTank4', randVect(), eTankDir4, eTankDir4, 100, scene, soundManager));
+    let eTankDir5 = randDir();
+    ennemyTanks.push(new M4('eTank5', randVect(), eTankDir5, eTankDir5, 100, scene, soundManager));
 
     return scene;
 }
@@ -100,22 +151,13 @@ function createGround(scene) {
     return ground;
 }
 
-export function createGUI(scene) {
+function createGUI() {
     // GUI
     let gui = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI("UI");
 
-    /*let button1 = BABYLON.GUI.Button.CreateSimpleButton("but1", "Click Me");
-    button1.width = "150px"
-    button1.height = "40px";
-    button1.color = "white";
-    button1.cornerRadius = 20;
-    button1.background = "green";
-    button1.onPointerUpObservable.add(function() {
-        alert("you did it!");
-    });*/
     let hpBG = new BABYLON.GUI.Rectangle();
-    hpBG.width = 0.1;
-    hpBG.height = 0.05;
+    hpBG.width = "400px";
+    hpBG.height = "75px";
     hpBG.cornerRadius = 5;
     hpBG.color = "black";
     hpBG.thickness = 1;
@@ -123,27 +165,43 @@ export function createGUI(scene) {
     hpBG.background = "red";
     hpBG.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
     hpBG.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_BOTTOM;
-    hpBG.top = 0.01;
-    hpBG.left = 0.01;
+    hpBG.bottom = "10px";
+    hpBG.right = "10px";
     let hpText = new BABYLON.GUI.TextBlock();
-    hpText.text = tank.hp.toString() + '/100';
+    hpText.text = tank.hp.toString() + '/100HP';
     hpText.color = "white";
-    hpText.fontSize = 24;
-    let infoBG = new BABYLON.GUI.Rectangle();
-    infoBG.width = 0.05;
-    infoBG.height = 0.25;
-    infoBG.cornerRadius = 5;
-    infoBG.alpha = 0.75;
-    infoBG.background = "black";
-    infoBG.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
-    infoBG.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_TOP;
-    infoBG.bottom = 0.01;
-    infoBG.left = 0.01;
+    hpText.fontSize = 36;
+    let nameText = new BABYLON.GUI.TextBlock();
+    nameText.text = tank.userName;
+    nameText.color = "white";
+    nameText.fontSize = 36;
+    nameText.textVerticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_TOP;
+    let timer = new BABYLON.GUI.TextBlock();
+    timer.text = 'Time: ' + Math.floor((Date.now() - startTime)/1000).toString() + 's';
+    timer.color = "white";
+    timer.fontSize = 36;
+    timer.textHorizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+    timer.textVerticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_TOP;
 
-    //gui.addControl(button1);
+    let cdTimer = new BABYLON.GUI.TextBlock();
+    cdTimer.text = 'Reloading: Ready !';
+    cdTimer.color = "white";
+    cdTimer.fontSize = 36;
+    cdTimer.textHorizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+    cdTimer.textVerticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_TOP;
+    cdTimer.top = "50px";
+
+    gui.hpBG = hpBG;
+    gui.hpText = hpText;
+    gui.nameText = nameText;
+    gui.timer = timer;
+    gui.cdTimer = cdTimer;
+
     hpBG.addControl(hpText);
-    gui.addControl(infoBG);
     gui.addControl(hpBG);
+    gui.addControl(nameText);
+    gui.addControl(timer);
+    gui.addControl(cdTimer);
 
     return gui;
 }
