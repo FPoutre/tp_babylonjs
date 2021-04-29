@@ -1,16 +1,24 @@
-import Dude from "./Dude.js";
-import Tank from "./Tank.js";
+import SoundManager from "./SoundManager.js";
+import T70 from "./T70.js";
+import M4 from "./M4.js";
+import Tiger from "./Tiger.js";
+import WSData from "./WSData.js";
 
 let canvas;
 let engine;
 let scene;
+let soundManager;
 let followCameraCreated;
 // vars for handling inputs
 let inputStates = {};
 let tank;
+let ennemyTanks = [];
+let pause = false;
 
 let mouseX = 800;
 let mouseY = 600;
+
+let socket = io.connect();
 
 window.onload = startGame;
 
@@ -25,27 +33,23 @@ function startGame() {
     modifySettings();
 
     engine.runRenderLoop(() => {
-        let deltaTime = engine.getDeltaTime(); // remind you something ?
+        processInputs(inputStates);
 
-        if (tank) {
-            if (!followCameraCreated && tank.turret) {
+        if (tank.hull && tank.turret) {
+            if (!followCameraCreated) {
                 // second parameter is the target to follow
                 let followCamera = createFollowCamera(scene, tank.turret);
                 scene.activeCamera = followCamera;
                 followCameraCreated = true;
+
                 console.log('finished loading !');
             }
             tank.move(inputStates);
             tank.traverse(inputStates);
-        }
-
-        let heroDude = scene.getMeshByName("heroDude");
-        if (heroDude && tank.hull) heroDude.Dude.move(scene);
-
-        if (scene.dudes && tank.hull) {
-            for(var i = 0 ; i < scene.dudes.length ; i++) {
-                scene.dudes[i].Dude.move(scene);
-            }
+            tank.shells.forEach(shell => {
+                shell.move(scene);
+            });
+            socket.emit('update', new WSData(tank));
         }
 
         scene.render();
@@ -54,23 +58,34 @@ function startGame() {
 
 function createScene() {
     let scene = new BABYLON.Scene(engine);
+    //scene.enablePhysics(new BABYLON.Vector3(0, -10*9.81, 0), new BABYLON.CannonJSPlugin());
+
     let ground = createGround(scene);
     let freeCamera = createFreeCamera(scene);
     scene.activeCamera = freeCamera;
+    soundManager = new SoundManager(scene);
+    scene.tanks = ennemyTanks;
+
+    scene.collisionsEnabled = true;
 
     createLights(scene);
 
-    tank = new Tank(window.prompt('Enter your name, tanker !'), scene);
+    let pos = new BABYLON.Vector3(
+        Math.floor(Math.random() * 1000) - 500,
+        0,
+        Math.floor(Math.random() * 1000) - 500
+    );
 
-    //createHeroDude(scene);
+    tank = new M4(window.prompt('Enter your name, tanker !'), pos, new BABYLON.Vector3(0, 0, 0), new BABYLON.Vector3(0, 0, 0), 100, scene, soundManager);
+    socket.emit('logIn', tank);
+    //ennemyTanks.push(new M4('pedo bob', new BABYLON.Vector3(0, 0, 500), new BABYLON.Vector3(0, -1, 0), new BABYLON.Vector3(0, 0, 0), 100, scene, soundManager));
 
     return scene;
 }
 
 function createGround(scene) {
-    const groundOptions = { width:2000, height:2000, subdivisions:20, minHeight:0, maxHeight:100, onReady: onGroundCreated};
     //scene is optional and defaults to the current scene
-    const ground = BABYLON.MeshBuilder.CreateGroundFromHeightMap("gdhm", 'images/hmap1.png', groundOptions, scene); 
+    const ground = BABYLON.MeshBuilder.CreateGroundFromHeightMap("gdhm", 'images/hmap1.png', { width:5000, height:5000, subdivisions:100, minHeight:0, maxHeight:100, onReady: onGroundCreated}, scene); 
 
     function onGroundCreated() {
         const groundMaterial = new BABYLON.StandardMaterial("groundMaterial", scene);
@@ -80,6 +95,8 @@ function createGround(scene) {
         // to be taken into account by collision detection
         ground.checkCollisions = true;
         //groundMaterial.wireframe=true;
+        //ground.physicsImpostor = new BABYLON.PhysicsImpostor(ground, BABYLON.PhysicsImpostor.HeightmapImpostor, { mass: 0, restitution: 0 }, scene);
+        scene.ground = ground;
     }
     return ground;
 }
@@ -115,13 +132,24 @@ function createFreeCamera(scene) {
 function createFollowCamera(scene, target) {
     let camera = new BABYLON.FollowCamera("tankFollowCamera", target.position, scene, target);
 
-    camera.radius = 100; // how far from the object to follow
-	camera.heightOffset = 40; // how high above the object to place the camera
+    camera.radius = 150; // how far from the object to follow
+	camera.heightOffset = 45; // how high above the object to place the camera
 	camera.rotationOffset = 180; // the viewing angle
 	camera.cameraAcceleration = .1; // how fast to move
 	camera.maxCameraSpeed = 5; // speed limit
 
     return camera;
+}
+
+function processInputs(inputStates) {
+    if (inputStates.pause) {
+        pause = !pause;
+        if (pause) {
+            soundManager.theme.pause();
+        } else {
+            soundManager.theme.play();
+        }
+    }
 }
 
 window.addEventListener("resize", () => {
@@ -158,6 +186,7 @@ function modifySettings() {
     inputStates.space = false;
     inputStates.traverseLeft = false;
     inputStates.traverseRight = false;
+    inputStates.pause = false;
     
     //add the listener to the main, window object, and update the states
     window.addEventListener('keydown', (event) => {
@@ -173,6 +202,8 @@ function modifySettings() {
             inputStates.traverseLeft = true;
         } else if ((event.key === "e") || (event.key === "E")) {
             inputStates.traverseRight = true;
+        } else if ((event.key === "p") || (event.key === "P")) {
+            inputStates.pause = true;
         } else if (event.key === " ") {
             inputStates.space = true;
         }
@@ -188,6 +219,8 @@ function modifySettings() {
             inputStates.right = false;
         } else if ((event.key === "ArrowDown")|| (event.key === "s")|| (event.key === "S")) {
             inputStates.down = false;
+        } else if ((event.key === "p") || (event.key === "P")) {
+            inputStates.pause = false;
         } else if (event.key === " ") {
             inputStates.space = false;
         }
@@ -195,10 +228,10 @@ function modifySettings() {
 
     window.addEventListener('mousemove', (event) => {
         if (document.pointerLockElement) {
-            if (event.movementX < -1) {
+            if (event.movementX < -2.5) {
                 inputStates.traverseLeft = true;
                 inputStates.traverseRight = false;
-            } else if (event.movementX > 1) {
+            } else if (event.movementX > 2.5) {
                 inputStates.traverseLeft = false;
                 inputStates.traverseRight = true;
             } else {
@@ -214,3 +247,44 @@ function modifySettings() {
         if (document.pointerLockElement) tank.shootMainGun();
     }, false);
 }
+
+socket.on('players', players => {
+    players.forEach(player => {
+        ennemyTanks.push(new M4(player.user, player.position, player.hullRotation, player.turretRotation, player.hp, scene, soundManager));
+    });
+});
+
+socket.on('newPlayer', player => {
+    ennemyTanks.push(new M4(player.user, player.position, player.hullRotation, player.turretRotation, player.hp, scene, soundManager));
+});
+
+socket.on('playersUpdate', players => {
+    players.forEach(player => {
+        if (player.name !== tank.userName) {
+            ennemyTanks.forEach(eTank => {
+                if (player.name === eTank.userName) {
+                    eTank.hull.position = new BABYLON.Vector3(player.pos.x, player.pos.y, player.pos.z);
+                    eTank.turret.position = new BABYLON.Vector3(player.pos.x, player.pos.y, player.pos.z);
+                    eTank.hitbox.position = new BABYLON.Vector3(player.pos.x, player.pos.y, player.pos.z);
+                    eTank.frontVector = player.hullRotation;
+                    eTank.hull.rotation = player.hullRotation;
+                    eTank.hitbox.rotation = player.hullRotation;
+                    eTank.cannonDirection = player.turretRotation;
+                    eTank.turret.rotation = player.turretRotation;
+                    eTank.hp = player.hp;
+                }
+            });
+        }
+    });
+});
+
+socket.on('logOut', player => {
+    for (let i = 0; i < ennemyTanks.length; i++) {
+        if (ennemyTanks[i].userName === player.name) {
+            scene.removeMesh(ennemyTanks[i].hull);
+            scene.removeMesh(ennemyTanks[i].turret);
+            scene.removeMesh(ennemyTanks[i].hitbox);
+            ennemyTanks.splice(i, 1);
+        }
+    }
+});
